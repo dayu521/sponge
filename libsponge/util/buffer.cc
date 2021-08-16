@@ -1,5 +1,7 @@
 #include "buffer.hh"
 
+#include <stdexcept>
+
 using namespace std;
 
 void Buffer::remove_prefix(const size_t n) {
