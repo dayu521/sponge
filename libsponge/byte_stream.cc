@@ -46,7 +46,7 @@ size_t ByteStream::write(const string &data)
         auto to_write=free_space;
         buff_.replace(end_,buff_.size()-end_,data,0,buff_.size()-end_);
         free_space-=buff_.size()-end_;
-        buff_.replace(0,free_space,data,-begin_,free_space);
+        buff_.replace(0,free_space,data,buff_.size()-end_,free_space);
         begin_=-(buff_.size()-begin_);//换算为负的开始偏移
         end_=free_space;
         written_n_+=to_write;
