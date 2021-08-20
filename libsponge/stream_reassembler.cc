@@ -67,60 +67,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
             }
         }
     }
-/*
-    // try to find some free space
-    if(unassembled_+data.size()>_output.remaining_capacity()){
-        if(index>next_index_)//There's really no free space
-            return ;
-        else {// maybe unassembled datas occupied free space
-            //we clear cache_
-            if(data.size()>_output.remaining_capacity())
-                return ;
-            auto target_size=_output.remaining_capacity()-data.size();
-            auto success=false;
-            for(auto rb=cache_.rbegin();rb!=cache_.rend();){
-                unassembled_-=rb->second.size();
-                cache_.erase(cache_.find((rb++)->first));//反向迭代器不能用于erase函数
-                if(unassembled_<=target_size){
-                    success=true;
-                    break;
-                }
-            }
-            if(success)
-                push_substring(data,index,eof);//retry
-            else
-                return;
-        }
-    }else {//decide the type of substrings
-        if(index<=next_index_){    //dealing with overlap substrings is inside
-            _output.write(data.substr(next_index_-index));
-            next_index_+=data.size()-(next_index_-index);
-            if(eof)
-                p_eof_={true,index+data.size()};
-            for(auto it=cache_.begin();it!=cache_.end();){
-                if(it->first<=next_index_&&it->first+it->second.size()>next_index_){
-                    auto && to_write=it->second.substr(next_index_-it->first);
-                    auto old_size=_output.remaining_capacity();
-                    _output.write(to_write);
-                    next_index_+=old_size-_output.remaining_capacity();
-                    unassembled_-=it->second.size();
-                    cache_.erase(it++);
-                }else if(it->first>next_index_)
-                    break;
-                else{
-                    unassembled_-=it->second.size();
-                    cache_.erase(it++);
-                }
-            }
 
-            if(p_eof_.first&&p_eof_.second==next_index_){
-                _output.end_input();
-            }
-        }else{// index which is bigger than next_index_,we put the substrings into cache_
-            put_into_cache(data,index,eof);
-        }
-    }
-*/
 //    DUMMY_CODE(data, index, eof);
 }
 
@@ -147,7 +94,7 @@ void StreamReassembler::put_into_cache(const string &data,size_t index, bool eof
     //无论如何,这里找到的上界是足够正确的
     auto upper_b=cache_.upper_bound(index+data.size());
 
-    //if there is overlap substrings in cache_,the following deals with it;
+    //if there are overlap substrings in cache_,the following deals with it;
 
     //检查是否和前面的子串重叠
     if(auto i=it;i--!=cache_.begin()&&i->first+i->second.size()>=index){
@@ -161,7 +108,7 @@ void StreamReassembler::put_into_cache(const string &data,size_t index, bool eof
             reserve.append(std::move(it->second));
             size_t max_offset=i->first+reserve.size();
             i=it;//now both i and it point to the same thing
-            i++;
+            ++i;
             cache_.erase(it);//don't use it any more
             //把属于[index,data.size()]之间的条目都删除
             for(auto j=i;j!=upper_b;){
@@ -177,13 +124,14 @@ void StreamReassembler::put_into_cache(const string &data,size_t index, bool eof
         }
     }else{
         i=it;
-        auto & reserve=i->second;//
-        for(auto j=++i;j!=upper_b;){
-            if(j->first+j->second.size()>index+data.size()){
-                unassembled_-=j->second.size();
-                auto little_bit=j->first+j->second.size()-(index+data.size());
-                reserve.append(j->second.substr(index+data.size()-j->first));
-                unassembled_+=little_bit;
+        auto & reserve=i->second;
+        size_t max_offset=i->first+reserve.size();
+        ++i;
+        //same as before
+        for(auto j=i;j!=upper_b;){
+            if(j->first+j->second.size()>max_offset){
+                unassembled_-=max_offset-j->first;
+                reserve.append(j->second.substr(max_offset-j->first));
                 cache_.erase(j);
                 break;
             }
