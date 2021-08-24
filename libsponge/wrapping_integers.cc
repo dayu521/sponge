@@ -63,5 +63,8 @@ uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint)
             return base_checkpoint-upbound_32+seqno_offset;
     }else
         return checkpoint;
-
+    //https://github.com/wine99/cs144-20fa/tree/lab1
+//    int32_t steps = n - wrap(checkpoint, isn);
+//    int64_t res = checkpoint + steps;
+//    return res >= 0 ? res : res + (1UL << 32);
 }
