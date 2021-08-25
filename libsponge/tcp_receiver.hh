@@ -20,6 +20,11 @@ class TCPReceiver {
     //! The maximum number of bytes we'll store.
     size_t _capacity;
 
+    enum class State:unsigned char{Listen,Runing,Fin};
+
+    State rev_state_=State::Listen;
+    WrappingInt32 isn_{0};//is invaild before we get syn
+
   public:
     //! \brief Construct a TCP receiver
     //!
