@@ -32,6 +32,37 @@ class TCPSender {
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
 
+    // the seqno of next byte  to be ack
+    uint64_t head_window_=0;
+
+    uint64_t tail_window_=0;
+
+    bool fill_one_=false;//whether we assume that the window size is 1 when the actual window size is zero
+
+    uint32_t retransmit_n_=0;
+
+    unsigned int rto_=_initial_retransmission_timeout;
+
+    /*************************/
+    class Awful_timer
+    {
+    private:
+        size_t total_ms_=0;
+        size_t passed_away_=0;
+    public:
+        void elapse(size_t ms){passed_away_+=ms;}
+        void stop(){total_ms_=passed_away_=0;}
+        void start(size_t ms){total_ms_=ms;passed_away_=0;}
+        bool is_timeout()const{return passed_away_>=total_ms_;}
+        bool is_running()const{return total_ms_>0;}
+    };
+    Awful_timer timer_{};
+
+    //(last_ack_seqno,TCPSegment)
+    std::queue<std::pair<size_t,TCPSegment>> outstanding_{};
+
+    /*************************/
+
   public:
     //! Initialize a TCPSender
     TCPSender(const size_t capacity = TCPConfig::DEFAULT_CAPACITY,

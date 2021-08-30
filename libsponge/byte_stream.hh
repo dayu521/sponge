@@ -19,6 +19,17 @@ class ByteStream {
 
     bool _error{};  //!< Flag indicating that the stream suffered an error.
 
+    bool end_of_file_=false;
+
+    signed long begin_=0;//当前流的开始索引
+    signed long end_=0;//当前流结束的下一个字符的索引
+
+    size_t read_n_=0;
+    size_t written_n_=0;
+    std::string buff_{};
+
+    bool input_over=false;
+
   public:
     //! Construct a stream with room for `capacity` bytes.
     ByteStream(const size_t capacity);
