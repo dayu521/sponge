@@ -26,7 +26,6 @@ ByteStream::ByteStream(const size_t capacity):buff_(capacity,'0')
 
 size_t ByteStream::write(const string &data)
 {
-
     if(buff_.size()-(end_-begin_)==0||data.size()==0)
         return 0;
     auto free_space=buff_.size()-(end_-begin_);
@@ -36,10 +35,6 @@ size_t ByteStream::write(const string &data)
     if(begin_<0||free_space<=buff_.size()-end_){
         buff_.replace(end_,free_space,data,0,free_space);
         end_+=free_space;
-        if(static_cast<size_t>(end_)==buff_.size()){
-            end_=0;
-            begin_=-(buff_.size()-begin_);//换算为负的开始偏移
-        }
         written_n_+=free_space;
         return free_space;
     }else{
@@ -52,8 +47,6 @@ size_t ByteStream::write(const string &data)
         written_n_+=to_write;
         return to_write;
     }
-//    DUMMY_CODE(data);
-//    return {};
 }
 
 //! \param[in] len bytes will be copied from the output side of the buffer
@@ -70,8 +63,6 @@ string ByteStream::peek_output(const size_t len) const
         s.replace(-begin_,end_,buff_,0,end_);
         return s;
     }
-//    DUMMY_CODE(len);
-//    return {};
 }
 
 //! \param[in] len bytes will be removed from the output side of the buffer
@@ -94,8 +85,6 @@ std::string ByteStream::read(const size_t len) {
     auto s=peek_output(len);
     pop_output(len);
     return s;
-//    DUMMY_CODE(len);
-//    return {};
 }
 
 void ByteStream::end_input()
