@@ -148,6 +148,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     timer_.stop();
     retransmit_n_=0;
     rto_=_initial_retransmission_timeout;
+    fill_window();
     if(outstanding_.size()>0&&!timer_.is_running()){
         timer_.start(rto_);
     }
