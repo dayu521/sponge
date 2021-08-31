@@ -127,6 +127,13 @@ void TCPSender::fill_window()
 void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size)
 {
     auto ack_left=unwrap(ackno,_isn,head_window_);
+    //bug fixed:
+    //credit for test: Jared Wasserman (2020)
+    //Impossible ackno (beyond next seqno) is ignored
+    if(ack_left>_next_seqno){
+        fill_window();
+        return;
+    }
     if(head_window_>=ack_left){
         if(tail_window_<ack_left+window_size)
             tail_window_=ack_left+window_size;
