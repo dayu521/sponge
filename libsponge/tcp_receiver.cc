@@ -28,7 +28,15 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
     }
         break;
     case State::Runing:{
-        auto absolute_seqno=unwrap(header.seqno,isn_,_reassembler.stream_out().bytes_written())-1;
+        //bug fixed:
+        //credit for test: Jared Wasserman
+        //A byte with invalid stream index should be ignored
+        if(header.seqno==isn_)
+            return ;
+        auto win_left=_reassembler.stream_out().bytes_written();
+        auto absolute_seqno=unwrap(header.seqno,isn_,win_left)-1;
+        if(absolute_seqno>=win_left+window_size())
+            return;
         _reassembler.push_substring(seg.payload().copy(),
                                     absolute_seqno,header.fin);
         if(_reassembler.stream_out().input_ended())

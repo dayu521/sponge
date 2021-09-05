@@ -55,12 +55,13 @@ string ByteStream::peek_output(const size_t len) const
     auto l=len;
     if(l>static_cast<size_t>(end_-begin_))
         l=end_-begin_;
-    if(begin_>=0)
-        return buff_.substr(begin_,l);
+    if(begin_>=0||l<=static_cast<size_t>(-begin_))
+        return buff_.substr((begin_+buff_.size())%buff_.size(),l);
     else{
         string s(l,'0');
         s.assign(buff_,buff_.size()+begin_);
-        s.replace(-begin_,end_,buff_,0,end_);
+        l-=static_cast<size_t>(-begin_);
+        s.replace(-begin_,l,buff_,0,l);
         return s;
     }
 }
