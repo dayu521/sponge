@@ -46,3 +46,6 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: make check_lab4
       
+    - name: tcp_benchmark Test
+      working-directory: ${{github.workspace}}/build
+      run: ./apps/tcp_benchmark  
