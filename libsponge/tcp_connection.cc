@@ -34,15 +34,19 @@ void TCPConnection::segment_received(const TCPSegment &seg)
         if(header.ack){
             _sender.ack_received(header.ackno,header.win);
         }
-        if(seg.payload().size()>0||header.syn|header.fin){
-            _sender.fill_window();
-            if(_sender.segments_out().size()==0){
-                _sender.send_empty_segment();
-            }
-            delivery_seg();
+        _sender.fill_window();
+        if(_sender.segments_out().size()==0&&(seg.payload().size()>0||header.syn|header.fin)){
+            _sender.send_empty_segment();
         }
+        if(_sender.segments_out().size()>0)
+            delivery_seg();
         if(_receiver.stream_out().input_ended()&&!_sender.stream_in().eof())
             _linger_after_streams_finish=false;
+        if(_linger_after_streams_finish&&
+                _sender.stream_in().eof()&&
+                _sender.bytes_in_flight()==0&&
+                _receiver.stream_out().input_ended())
+            time_wait_=true;
     }
 }
 
@@ -79,7 +83,7 @@ size_t TCPConnection::write(const string &data) {
 void TCPConnection::tick(const size_t ms_since_last_tick)
 {
     estime_+=ms_since_last_tick;
-    if(_linger_after_streams_finish&&_sender.bytes_in_flight()==0){//此时发送方已经结束了
+    if(time_wait_){//此时发送方已经结束了
         linger_+=ms_since_last_tick;
     }
     if(_sender.consecutive_retransmissions()>=TCPConfig::MAX_RETX_ATTEMPTS){
@@ -99,9 +103,9 @@ void TCPConnection::tick(const size_t ms_since_last_tick)
 
 void TCPConnection::end_input_stream()
 {
+    _sender.stream_in().end_input();
     if(_receiver.stream_out().input_ended())
         _linger_after_streams_finish=false;
-    _sender.stream_in().end_input();
     _sender.fill_window();
     delivery_seg();
 }

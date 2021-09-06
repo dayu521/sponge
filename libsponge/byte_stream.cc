@@ -32,7 +32,7 @@ size_t ByteStream::write(const string &data)
     if(free_space>data.size()){
         free_space=data.size();
     }
-    if(begin_<0||free_space<=buff_.size()-end_){
+    if(begin_<=0||free_space<=buff_.size()-end_){
         buff_.replace(end_,free_space,data,0,free_space);
         end_+=free_space;
         written_n_+=free_space;

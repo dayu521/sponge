@@ -92,9 +92,9 @@ void TCPSender::fill_window()
             _segments_out.push(std::move(seg));
         }
         if(stream_in().eof()&&stream_in().buffer_size()==0&&_next_seqno<tail_window_){
-            outstanding_.front().second.header().fin=true;
-            outstanding_.front().first+=1;
-            _segments_out.front().header().fin=true;
+            outstanding_.back().second.header().fin=true;
+            outstanding_.back().first+=1;
+            _segments_out.back().header().fin=true;
             _next_seqno++;
         }
         if(!timer_.is_running())

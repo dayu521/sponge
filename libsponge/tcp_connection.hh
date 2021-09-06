@@ -23,6 +23,7 @@ class TCPConnection {
 
     size_t estime_=0;
     size_t linger_=0;
+    bool time_wait_=false;
 private:
     void delivery_seg();
 
