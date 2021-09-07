@@ -1,3 +1,27 @@
+- [x] Lab 0: networking warmup
+
+- [x] Lab 1: stitching substrings into a byte stream
+
+- [x] Lab 2: the TCP receiver
+
+- [x] Lab 3: the TCP sender
+
+- [x] Lab 4: the TCP connection
+
+- [ ] Lab 5: the network interface
+
+- [ ] Lab 6: the IP router 
+
+- [ ] Lab 7: putting it all together
+ 
+ 在我自己笔记本上(archlinux),通过了lab0-lab4的所有测试,lab1-lab4中的每个lab对应到相应分支,例如:lab1在lab1-startercode分支.而lab0在master分支
+ 
+ 当利用github action跑测试案例时，lab4中的测试却有部分失败以及超时,不知道是不是github action的主机的一些类似于防火墙保护的问题(千万别是我自己代码的bug!)
+ 
+ >  直到lab4，之前的lab中存在的一些微妙问题没有被对应测试覆盖到，实际想来，还是过于依赖测试案例了。在lab4中修改了这些bug后，终于通过了lab4的测试，**how tough it is**!
+ 
+====以下是原始lab说明====
+
 For build prereqs, see [the CS144 VM setup instructions](https://web.stanford.edu/class/cs144/vm_howto).
 
 ## Sponge quickstart
