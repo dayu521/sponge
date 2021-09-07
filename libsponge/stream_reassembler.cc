@@ -36,24 +36,29 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     auto dd=cache_.begin();
 
     //we can assemble all or part of those chars
-    if(dd!=cache_.end()&&dd->first<=next_index_){
+    if(dd->first<next_index_){
         auto offset=next_index_-dd->first;
         unassembled_-=offset;
-        auto && real_chars=dd->second.substr(offset);
-
-        auto byten=_output.write(real_chars);
+        auto byten=_output.write(dd->second.substr(offset));
         unassembled_-=byten;
         next_index_+=byten;
-        cache_.erase(dd);
+        cache_.erase(dd++);
+    }
 
+    while (dd!=cache_.end()&&dd->first==next_index_) {
+        auto byten=_output.write(dd->second);
+        auto ddol=dd->second.size();
+        unassembled_-=byten;
+        next_index_+=byten;
+        cache_.erase(dd++);
         //have no free space to use
-        if(byten<real_chars.size()){
+        if(byten<ddol){
             cache_.clear();
             unassembled_=0;
         }
-        if(p_eof_.first&&p_eof_.second==next_index_){
-            _output.end_input();
-        }
+    }
+    if(p_eof_.first&&p_eof_.second==next_index_){
+        _output.end_input();
     }
 
     //clear cache_
@@ -113,6 +118,8 @@ void StreamReassembler::put_into_cache(const string &data,size_t index, bool eof
             //把属于[index,data.size()]之间的条目都删除
             for(auto j=i;j!=upper_b;){
                 if(j->first+j->second.size()>max_offset){
+                    if(max_offset==j->first)
+                        break;
                     unassembled_-=max_offset-j->first;
                     reserve.append(j->second.substr(max_offset-j->first));
                     cache_.erase(j);
@@ -130,6 +137,8 @@ void StreamReassembler::put_into_cache(const string &data,size_t index, bool eof
         //same as before
         for(auto j=i;j!=upper_b;){
             if(j->first+j->second.size()>max_offset){
+                if(max_offset==j->first)
+                    break;
                 unassembled_-=max_offset-j->first;
                 reserve.append(j->second.substr(max_offset-j->first));
                 cache_.erase(j);
