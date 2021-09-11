@@ -34,14 +34,18 @@ void TCPConnection::segment_received(const TCPSegment &seg)
         if(header.ack){
             _sender.ack_received(header.ackno,header.win);
         }
-        _sender.fill_window();
-        if(_sender.segments_out().size()==0&&(seg.payload().size()>0||header.syn|header.fin)){
-            _sender.send_empty_segment();
-        }
-        if(_sender.segments_out().size()>0)
-            delivery_seg();
+
         if(_receiver.stream_out().input_ended()&&!_sender.stream_in().eof())
             _linger_after_streams_finish=false;
+
+        if((seg.payload().size()>0||header.syn|header.fin)){
+            _sender.fill_window();
+            if(_sender.segments_out().size()==0)
+                _sender.send_empty_segment();
+            delivery_seg();
+        }
+
+
         if(_linger_after_streams_finish&&
                 _sender.stream_in().eof()&&
                 _sender.bytes_in_flight()==0&&

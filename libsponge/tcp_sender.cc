@@ -140,7 +140,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         return ;
     }
 
-    while (outstanding_.size()>0&&head_window_<ack_left) {
+    while (outstanding_.size()>0) {
         const auto &[last_ack_seqno,segment]=outstanding_.front();
         if(last_ack_seqno<=ack_left){
             head_window_=last_ack_seqno;
@@ -150,6 +150,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     }
 
 
+//    if(window_size>0)
     fill_one_=false;
     tail_window_=ack_left+window_size;
     timer_.stop();
