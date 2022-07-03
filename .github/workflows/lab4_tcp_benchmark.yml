@@ -48,5 +48,4 @@ jobs:
       
     - name: tcp_benchmark Test
       working-directory: ${{github.workspace}}/build
-      # run: ./apps/tcp_benchmark  
-      run: make check_lab4
+      run: ./apps/tcp_benchmark  
