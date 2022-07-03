@@ -1,4 +1,4 @@
-name: lab4-test
+name: lab4_tcp_benchmark
 
 on:
   workflow_dispatch:
