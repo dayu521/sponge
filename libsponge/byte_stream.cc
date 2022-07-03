@@ -32,7 +32,7 @@ size_t ByteStream::write(const string &data)
     if(free_space>data.size()){
         free_space=data.size();
     }
-    if(begin_<=0||free_space<=buff_.size()-end_){
+    if(begin_<=0||(begin_>0&&free_space<=buff_.size()-end_)){
         buff_.replace(end_,free_space,data,0,free_space);
         end_+=free_space;
         written_n_+=free_space;
@@ -55,7 +55,7 @@ string ByteStream::peek_output(const size_t len) const
     auto l=len;
     if(l>static_cast<size_t>(end_-begin_))
         l=end_-begin_;
-    if(begin_>=0||l<=static_cast<size_t>(-begin_))
+    if(begin_>=0||l<=static_cast<size_t>(-begin_)/*begin的绝对值*/)
         return buff_.substr((begin_+buff_.size())%buff_.size(),l);
     else{
         string s(l,'0');
@@ -74,9 +74,6 @@ void ByteStream::pop_output(const size_t len)
         l=end_-begin_;
     begin_+=l;
     read_n_+=l;
-    if(input_ended()&&begin_==end_){
-        end_of_file_=true;
-    }
 }
 
 //! Read (i.e., copy and then pop) the next "len" bytes of the stream
@@ -91,8 +88,6 @@ std::string ByteStream::read(const size_t len) {
 void ByteStream::end_input()
 {
     input_over=true;
-    if(end_==begin_)
-        end_of_file_=true;
 }
 
 bool ByteStream::input_ended() const { return input_over; }
@@ -101,7 +96,7 @@ size_t ByteStream::buffer_size() const { return end_-begin_; }
 
 bool ByteStream::buffer_empty() const { return begin_==end_; }
 
-bool ByteStream::eof() const { return end_of_file_; }
+bool ByteStream::eof() const { return buffer_empty()&&input_over; }
 
 size_t ByteStream::bytes_written() const { return written_n_; }
 

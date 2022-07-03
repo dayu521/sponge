@@ -19,10 +19,12 @@ class ByteStream {
 
     bool _error{};  //!< Flag indicating that the stream suffered an error.
 
-    bool end_of_file_=false;
-
+    //读的开始索引
     signed long begin_=0;//当前流的开始索引
+    //写的开始索引
     signed long end_=0;//当前流结束的下一个字符的索引
+
+    //读的容量直接计算出来:end_-begin_
 
     size_t read_n_=0;
     size_t written_n_=0;
