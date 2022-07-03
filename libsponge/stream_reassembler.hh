@@ -23,8 +23,6 @@ class StreamReassembler {
 
     std::map<size_t,std::string> cache_{};
     size_t unassembled_=0;  //for cache_
-private:
-    void put_into_cache(const std::string & data, size_t index, bool eof);
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
     //! \note This capacity limits both the bytes that have been reassembled,
