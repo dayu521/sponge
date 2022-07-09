@@ -17,7 +17,7 @@ StreamReassembler::StreamReassembler(const size_t capacity) : _output(capacity),
 namespace {
 size_t put_into_cache(std::map<size_t, std::string> &cache_, const string &data, size_t index) 
 {
-    size_t unassembled_ = 0;
+    size_t extra_byte_n_ = 0;
     // we must guarantee that there is no overlap substrings in cache_
 
     // No matter what the situation is, we first try to insert the substring into the cache_.
@@ -25,14 +25,14 @@ size_t put_into_cache(std::map<size_t, std::string> &cache_, const string &data,
     if (it != cache_.end()) {
         if (auto oldsize = it->second.size(); oldsize < data.size()) {
             it->second = data;
-            unassembled_ += it->second.size() - oldsize;
+            extra_byte_n_ += it->second.size() - oldsize;
         } else
-            return unassembled_;
+            return extra_byte_n_;
     } else if (auto pair = cache_.insert({index, data}); pair.second) {
         it = pair.first;
-        unassembled_ += data.size();
+        extra_byte_n_ += data.size();
     } else {
-        return unassembled_;  // did we get here and with  something wrong?
+        return extra_byte_n_;  // did we get here and with  something wrong?
     }
     // we have made "it" right value.
 
@@ -44,11 +44,11 @@ size_t put_into_cache(std::map<size_t, std::string> &cache_, const string &data,
     //检查是否和前面的子串重叠
     if (auto i = it; i-- != cache_.begin() && i->first + i->second.size() >= index) {
         if (index + data.size() <= i->first + i->second.size()) {
-            unassembled_ -= it->second.size();
+            extra_byte_n_ -= it->second.size();
             cache_.erase(it);
         } else {
             auto &reserve = i->second;
-            unassembled_ -= reserve.size() - (index - i->first);
+            extra_byte_n_ -= reserve.size() - (index - i->first);
             reserve.resize(index - i->first);  //取这个子串的前缀作为开始部分
             reserve.append(std::move(it->second));
             size_t max_offset = i->first + reserve.size();
@@ -60,12 +60,12 @@ size_t put_into_cache(std::map<size_t, std::string> &cache_, const string &data,
                 if (j->first + j->second.size() > max_offset) {
                     if (max_offset == j->first)
                         break;
-                    unassembled_ -= max_offset - j->first;
+                    extra_byte_n_ -= max_offset - j->first;
                     reserve.append(j->second.substr(max_offset - j->first));
                     cache_.erase(j);
                     break;
                 }
-                unassembled_ -= j->second.size();
+                extra_byte_n_ -= j->second.size();
                 cache_.erase(j++);
             }
         }
@@ -79,16 +79,16 @@ size_t put_into_cache(std::map<size_t, std::string> &cache_, const string &data,
             if (j->first + j->second.size() > max_offset) {
                 if (max_offset == j->first)
                     break;
-                unassembled_ -= max_offset - j->first;
+                extra_byte_n_ -= max_offset - j->first;
                 reserve.append(j->second.substr(max_offset - j->first));
                 cache_.erase(j);
                 break;
             }
-            unassembled_ -= j->second.size();
+            extra_byte_n_ -= j->second.size();
             cache_.erase(j++);
         }
     }
-    return unassembled_;
+    return extra_byte_n_;
 }
 }  // namespace
 
@@ -105,6 +105,21 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //duplicate data,discard it
     if(index+data.size()<next_index_)
         return ;
+
+    //即使unassembled_>_output.remaining_capacity(),此刻我们仍然需要放到cache_中去检查
+    //看看是否存在不连续的字节占用了unassembled_的容量
+
+    //释放足够的空间
+    // if(_output.remaining_capacity()-unassembled_<data.size()){
+    //     auto it_last=cache_.rbegin();
+    //     auto need_bytes=data.size()-(_output.remaining_capacity()-unassembled_);
+    //     decltype(need_bytes) free_bytes=0;
+    //     while (it_last!=cache_.rend()&&free_bytes<need_bytes)
+    //     {
+    //         cache_.erase(free_bytes+=(it_last++)->first);
+    //     }
+    //     unassembled_-=free_bytes;
+    // }
 
     //we hava a little free space left
 
