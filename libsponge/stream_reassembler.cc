@@ -20,6 +20,7 @@ using namespace std;
 StreamReassembler::StreamReassembler(const size_t capacity) : _output(capacity), _capacity(capacity) {}
 
 namespace {
+/*
     size_t put_into_cache(std::map<size_t, std::string> &cache_, const string &data, size_t index) 
     {
         size_t extra_byte_n_ = 0;
@@ -95,13 +96,14 @@ namespace {
         }
         return extra_byte_n_;
     }
-
+*/
     size_t update_unassembled_bytes(std::map<size_t, std::string> &cache_, const string &data, size_t index)
     {
         auto [change_bytes,
               ins,
               a,
               index_end
+                //todo 为什么lower_bound不是找下界?
              ] =std::tuple{static_cast<size_t>(0),cache_.end(),cache_.lower_bound(index),index+data.size()};
 
         //和前一块有交集,先行处理一次
@@ -115,9 +117,11 @@ namespace {
                 return change_bytes;//nothing to do
         } else {
             a = cache_.insert({index, data}).first;//先不增加大小
+            change_bytes+=data.size();
         }
         //现在没有交集了
         ins = a;
+        ins++;
         
         //循环内不需要创建新字符串
         while (ins != cache_.end() && ins->first + ins->second.size() <= index_end) {
@@ -163,16 +167,17 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
         act_index=next_index_;
     }
     // data以及index必定在窗口内(容量),不可能越界,即:act_index+data.substr(act_index)<=next_index_+_output.remaining_capacity()
-    assert(act_index<=next_index_);
-    unassembled_+=update_unassembled_bytes(cache_,data.substr(act_index),act_index);
+    assert(act_index<=next_index_+_output.remaining_capacity());
+    unassembled_+=update_unassembled_bytes(cache_,data.substr(act_index-index),act_index);
 
     auto dd = cache_.begin();
 
     if (dd->first == next_index_) {
-        assert(unassembled_ < _output.remaining_capacity());
+        assert(unassembled_ <= _output.remaining_capacity());
         auto len = _output.write(dd->second);
-        assert(len = dd->second.size());
+        assert(len == dd->second.size());
         unassembled_ -= len;
+        next_index_+=len;
         cache_.erase(dd);
     }
     if (eof && unassembled_ == 0) {
