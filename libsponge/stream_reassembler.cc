@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <tuple>
 #include <utility>
+#include <algorithm>
 
 // Dummy implementation of a stream reassembler.
 
@@ -101,23 +102,37 @@ namespace {
     {
         auto [change_bytes,
               ins,
-              a,
               index_end
                 //todo 为什么lower_bound不是找下界?
-             ] =std::tuple{static_cast<size_t>(0),cache_.end(),cache_.lower_bound(index),index+data.size()};
+             ] =std::tuple{static_cast<size_t>(0),cache_.end(),index+data.size()};
 
+        //////////////////
+        // 有更好的方法尝试寻找index的前继吗?到头来,貌似使用map就一个排序的功能了,好鸡肋
+        auto t = cache_.insert({index, {}});
+        assert(t.second==true);
+        auto a = cache_.end();
+        if (t.first != cache_.begin()) {
+            a = t.first;
+            a--;
+        }
+        cache_.erase(t.first);
+        ////////////////
+
+        //todo 初始大小如何增加
         //和前一块有交集,先行处理一次
         if (a != cache_.end() && (a->first + a->second.size() >= index)) {
             assert(a->first <= index);
-            if (a->first + a->second.size() < index_end){
-                index = a->first + a->second.size();
-                a->second.append(data.substr(index));
+            if (a->first + a->second.size() < index_end) {
+                const auto & s=data.substr(a->first + a->second.size()-index);
+                a->second.append(s);
+                index += s.size();
+                change_bytes+=s.size();//提前增加大小
             }
             else
                 return change_bytes;//nothing to do
         } else {
-            a = cache_.insert({index, data}).first;//先不增加大小
-            change_bytes+=data.size();
+            a = cache_.insert({index, data}).first;
+            change_bytes+=data.size();//提前增加大小
         }
         //现在没有交集了
         ins = a;
@@ -127,15 +142,16 @@ namespace {
         while (ins != cache_.end() && ins->first + ins->second.size() <= index_end) {
             auto ci = ins->first + ins->second.size();
             change_bytes -= ins->second.size();//减少的字节
-            change_bytes += ci - index;  //增加的字节
+            // change_bytes += ci - index;  //增加的字节
             index = ci;
             cache_.erase(ins++);
         }
-        if (ins != cache_.end()) {
+        if (ins != cache_.end()&&index_end>=ins->first) {
             const auto &end_str = ins->second.substr(index_end - ins->first);
+            a->second.append(end_str);
             change_bytes-=ins->second.size();
             index_end += end_str.size();
-            change_bytes+=index_end-index;
+            change_bytes+=end_str.size();
             index=index_end;//没什么必要
             cache_.erase(ins);//ins就失效了
         }
@@ -157,18 +173,23 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //duplicate data,discard it
     if(index+data.size()<next_index_)
         return;
-    
+  
     //we hava a little free space left
 
     // we try to merge the data into those from cache_ first
-    
-    auto act_index=index;
-    if (act_index < next_index_) {
-        act_index=next_index_;
+
+    auto index_act = index;
+    auto remainder=0;
+    if (index_act < next_index_) {
+        index_act=next_index_;
     }
-    // data以及index必定在窗口内(容量),不可能越界,即:act_index+data.substr(act_index)<=next_index_+_output.remaining_capacity()
-    assert(act_index<=next_index_+_output.remaining_capacity());
-    unassembled_+=update_unassembled_bytes(cache_,data.substr(act_index-index),act_index);
+    // data以及index必定在窗口内(容量),不可能越界,即:index+data.size()<=next_index_+_output.remaining_capacity()
+    // ! 测试案例居然传递超过窗口大小的字节,不可思议,断言不成立
+    // assert(index+data.size()<=next_index_+_output.remaining_capacity());
+    assert(index_act <= next_index_ + _output.remaining_capacity());
+    if (index+data.size() > next_index_ + _output.remaining_capacity())
+        remainder=index+data.size()-(next_index_ + _output.remaining_capacity());
+    unassembled_+=update_unassembled_bytes(cache_,data.substr(index_act-index,data.size()-remainder),index_act);
 
     auto dd = cache_.begin();
 
@@ -180,9 +201,12 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
         next_index_+=len;
         cache_.erase(dd);
     }
-    if (eof && unassembled_ == 0) {
-        _output.end_input();
+    if (eof ) {
+        p_eof_.first = true;
+        p_eof_.second=index+data.size();
     }
+    if (p_eof_.first&&next_index_ == p_eof_.second)
+        _output.end_input();
 
         
     // if(eof)
