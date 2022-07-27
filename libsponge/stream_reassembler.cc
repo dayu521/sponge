@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <cstddef>
+#include <iostream>
 #include <tuple>
 #include <utility>
 #include <algorithm>
@@ -108,31 +109,43 @@ namespace {
 
         //////////////////
         // 有更好的方法尝试寻找index的前继吗?到头来,貌似使用map就一个排序的功能了,好鸡肋
-        auto t = cache_.insert({index, {}});
-        assert(t.second==true);
+        auto t = cache_.insert({index, data});
         auto a = cache_.end();
-        if (t.first != cache_.begin()) {
-            a = t.first;
-            a--;
+        if (!t.second) {
+            assert(index==t.first->first);
+            if (data.size() > t.first->second.size()) {
+                change_bytes-=t.first->second.size();
+                t.first->second = data;
+                change_bytes+=data.size();
+            } else {
+                return change_bytes;
+            }
+        }else{
+            //尝试找到前一块
+            if (t.first != cache_.begin()) {
+                a = t.first;
+                a--;
+            }
         }
-        cache_.erase(t.first);
         ////////////////
 
         //todo 初始大小如何增加
-        //和前一块有交集,先行处理一次
-        if (a != cache_.end() && (a->first + a->second.size() >= index)) {
+        //有前一块且和前一块有交集,先行处理一次
+        if (a!=cache_.end()&&(a->first + a->second.size() >= index)) {
             assert(a->first <= index);
             if (a->first + a->second.size() < index_end) {
                 const auto & s=data.substr(a->first + a->second.size()-index);
                 a->second.append(s);
                 index += s.size();
-                change_bytes+=s.size();//提前增加大小
+                change_bytes += s.size();  //提前增加大小
+                cache_.erase(t.first);//此后t失效
             }
             else
                 return change_bytes;//nothing to do
         } else {
-            a = cache_.insert({index, data}).first;
-            change_bytes+=data.size();//提前增加大小
+            a = t.first;
+            if(t.second)
+                change_bytes+=data.size();//提前增加大小
         }
         //现在没有交集了
         ins = a;
@@ -165,6 +178,8 @@ namespace {
 //! contiguous substrings and writes them into the output stream in order.
 void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof)
 {
+
+    // std::cout<<"索引是:"<<index<<",数据长度:"<<data.size()<<std::endl;
     //have no aviable space,just discard
     if(_output.remaining_capacity()==0){
         return;
@@ -189,17 +204,21 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     assert(index_act <= next_index_ + _output.remaining_capacity());
     if (index+data.size() > next_index_ + _output.remaining_capacity())
         remainder=index+data.size()-(next_index_ + _output.remaining_capacity());
-    unassembled_+=update_unassembled_bytes(cache_,data.substr(index_act-index,data.size()-remainder),index_act);
+    unassembled_+=update_unassembled_bytes(cache_,data.substr(index_act-index,data.size()-remainder-(index_act-index)),index_act);
 
     auto dd = cache_.begin();
-
-    if (dd->first == next_index_) {
+    auto df = dd->first;
+    
+    // std::cout<<"cache_.begin:"<<df<<",数据长度:"<<dd->second.size()<<std::endl;
+    if (df == next_index_) {
         assert(unassembled_ <= _output.remaining_capacity());
         auto len = _output.write(dd->second);
         assert(len == dd->second.size());
         unassembled_ -= len;
         next_index_+=len;
         cache_.erase(dd);
+        // for debug
+        // std::cout<<"当前cache_的第一个条目索引"<<cache_.begin()->first<<std::endl;
     }
     if (eof ) {
         p_eof_.first = true;
