@@ -94,7 +94,6 @@ namespace {
             change_bytes-=ins->second.size();
             change_bytes+=end_str.size();
             index_end += end_str.size();
-            std::cout<<change_bytes<<std::endl;
             index=index_end;//没什么必要
             cache_.erase(ins);//ins就失效了
         }
