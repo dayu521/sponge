@@ -25,6 +25,7 @@ namespace {
 
     size_t update_unassembled_bytes(std::map<size_t, std::string> &cache_, const string &data, size_t index)
     {
+        //注意,我们的change_bytes是变化量,需要是负数
         auto [change_bytes,
               ins,
               index_end
@@ -34,7 +35,7 @@ namespace {
         //////////////////
         // 有更好的方法尝试寻找index的前继吗?到头来,貌似使用map就一个排序的功能了,好鸡肋
         auto t = cache_.insert({index, data});
-        auto ib                                                                     = cache_.end();
+        auto ib= cache_.end();
         if (!t.second) {
             assert(index==t.first->first);
             if (data.size() > t.first->second.size()) {
@@ -60,7 +61,6 @@ namespace {
                 assert(ib->first <= index);
                 if (ib->first + ib->second.size() < index_end) {
                     const auto &s = data.substr(ib->first + ib->second.size() - index);
-                    change_bytes-=ib->first + ib->second.size() - index;
                     ib->second.append(s);
                     index += s.size();
                     change_bytes += s.size();  //提前增加大小
@@ -90,9 +90,11 @@ namespace {
         if (ins != cache_.end()&&index_end>=ins->first) {
             const auto &end_str = ins->second.substr(index_end - ins->first);
             ib->second.append(end_str);
+            //这里和前方不同,先增加大小,是因为我们需要保持change_bytes一直都是非负数
             change_bytes-=ins->second.size();
-            index_end += end_str.size();
             change_bytes+=end_str.size();
+            index_end += end_str.size();
+            std::cout<<change_bytes<<std::endl;
             index=index_end;//没什么必要
             cache_.erase(ins);//ins就失效了
         }
@@ -145,8 +147,6 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
         unassembled_ -= len;
         next_index_+=len;
         cache_.erase(dd);
-        // for debug
-        std::cout<<"next_index_:"<<next_index_<<std::endl;
     }
     if (eof ) {
         p_eof_.first = true;
