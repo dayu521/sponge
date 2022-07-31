@@ -7,6 +7,7 @@
 #include <map>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 // Dummy implementation of a stream reassembler.
@@ -25,86 +26,90 @@ StreamReassembler::StreamReassembler(const size_t capacity) : _output(capacity),
 
 namespace {
 using map_iterator = std::map<size_t, std::string>::iterator;
-// 迭代器必须合法,否则未定义
-bool check_intersect(map_iterator a, map_iterator b) {
-    auto [a_left, a_right] = std::make_pair(a->first, a->first + a->second.size());
-    auto [b_left, b_right] = std::make_pair(b->first, b->first + b->second.size());
-    return true;
+//it必须合法,返回值不保证合法,例如,可能是容器的end()
+size_t find_gap_index(map_iterator it,map_iterator it_end) {
+    std::remove_cv<decltype(it->first)>::type i = 0;
+    auto be=it->first;
+    while (it!=it_end&&be+i==it->first) {
+        i += it->second.size();
+        it++;
+    }
+    return i;
 }
 
 size_t update_unassembled_bytes(std::map<size_t, std::string> &cache_, const string &data, size_t index) {
+    //#bug 5
+    if (data.size() == 0)
+        return static_cast<size_t>(0);
     //注意,我们的change_bytes是变化量,需要是负数
-    auto [change_bytes, ins, index_end
+    auto [extra_bytes, it, index_end
           // todo 为什么lower_bound不是找下界?
-    ] = std::tuple{static_cast<size_t>(0), cache_.end(), index + data.size()};
+    ] = std::tuple{static_cast<long>(0), cache_.end(), index + data.size()};
 
     //////////////////
     // 有更好的方法尝试寻找index的前继吗?到头来,貌似使用map就一个排序的功能了,好鸡肋
     auto t = cache_.insert({index, data});
-    auto ib = cache_.end();
+    auto ib = t.first;
     if (!t.second) {
         assert(index == t.first->first);
-        if (data.size() > t.first->second.size()) {
-            change_bytes -= t.first->second.size();
-            index += t.first->second.size();
-            t.first->second = data;
-            change_bytes += data.size();
+        auto skip_index = find_gap_index(t.first, cache_.end());
+        if (skip_index < data.size()) {
+            assert(skip_index>0);
+            index+=skip_index;
+            t = cache_.insert({index, data.substr(skip_index)});
+            assert(t.second==true);
+            extra_bytes += t.first->second.size();
             ib = t.first;
         } else {
-            return change_bytes;
+            return extra_bytes;
         }
+        // if (data.size() > t.first->second.size()) {
+        //     //#bug 4
+        //     index += t.first->second.size();
+        //     t = cache_.insert({index, data.substr(t.first->second.size())});
+        //     assert(t.second==true);
+        //     extra_bytes += t.first->second.size();
+        //     ib = t.first;
+        // } else {
+        //     return extra_bytes;
+        // }
     } else {
         //尝试找到前一块
         if (t.first != cache_.begin()) {
-            ib = t.first;
-            ib--;
-        }
-        ////////////////
-
-        // todo 初始大小如何增加
-        //有前一块且和前一块有交集,先行处理一次
-        if (ib != cache_.end() && (ib->first + ib->second.size() >= index)) {
-            assert(ib->first <= index);
-            if (ib->first + ib->second.size() < index_end) {
-                const auto &s = data.substr(ib->first + ib->second.size() - index);
-                ib->second.append(s);
-                index += s.size();
-                change_bytes += s.size();  //提前增加大小
-                cache_.erase(t.first);     //此后t失效
-            } else {
-                cache_.erase(t.first);
-                return change_bytes;  // nothing to do
+            auto pre_it = t.first;
+            pre_it--;
+            if (pre_it->first + pre_it->second.size() > index) {  //找到前一块重叠处
+                //#bug 2
+                if (pre_it->first + pre_it->second.size() < index_end) {
+                    extra_bytes-=pre_it->first+pre_it->second.size()-index;
+                    pre_it->second=pre_it->second.substr(0,index-pre_it->first);
+                } else {
+                    //# bug 3
+                    cache_.erase(t.first);
+                    return extra_bytes;
+                }
             }
-        } else {
-            ib = t.first;
-            change_bytes += data.size();
         }
+        //无论前一块是否存在,现在都没有重叠了
+        extra_bytes+=data.size();
     }
 
     //现在没有交集了
-    ins = ib;
-    ins++;
+    it = ib;
+    it++;
 
     //循环内不需要创建新字符串
-    while (ins != cache_.end() && ins->first + ins->second.size() <= index_end) {
-        auto ci = ins->first + ins->second.size();
-        change_bytes -= ins->second.size();  //减少的字节
-        // change_bytes += ci - index;  //增加的字节
-        index = ci;
-        cache_.erase(ins++);
+    while (it != cache_.end() && it->first + it->second.size() <= index_end) {
+        extra_bytes -= it->second.size();  //减少的字节
+        cache_.erase(it++);
     }
-    if (ins != cache_.end() && index_end >= ins->first) {
-        const auto &end_str = ins->second.substr(index_end - ins->first);
-        ib->second.append(end_str);
-        //这里和前方不同,先增加大小,是因为我们需要保持change_bytes一直都是非负数
-        change_bytes -= ins->second.size();
-        change_bytes += end_str.size();
-        index_end += end_str.size();
-        index = index_end;  //没什么必要
-        cache_.erase(ins);  // ins就失效了
+    if (it != cache_.end() && index_end > it->first) {
+        //#bug 1
+        ib->second=ib->second.substr(0,it->first-ib->first);
+        extra_bytes -= index_end-it->first;
     }
 
-    return change_bytes;
+    return extra_bytes;
 }
 
 using str_range = std::pair<size_t, size_t>;
