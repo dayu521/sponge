@@ -76,8 +76,8 @@ size_t update_unassembled_bytes(std::map<size_t, std::string> &cache_, const str
             index+=skip_index;
             t = cache_.insert({index, data.substr(skip_index)});
             assert(t.second==true);
-            extra_bytes += td->second.size();
-            ib = td;
+            extra_bytes += t.first->second.size();
+            ib = t.first;
         } else {
             return extra_bytes;
         }
