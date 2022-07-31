@@ -1,14 +1,11 @@
 #include "stream_reassembler.hh"
 
-#include <algorithm>
 #include <assert.h>
 #include <cstddef>
-#include <iostream>
 #include <map>
 #include <string>
 #include <tuple>
 #include <type_traits>
-#include <utility>
 
 // Dummy implementation of a stream reassembler.
 
@@ -50,16 +47,37 @@ size_t update_unassembled_bytes(std::map<size_t, std::string> &cache_, const str
     // 有更好的方法尝试寻找index的前继吗?到头来,貌似使用map就一个排序的功能了,好鸡肋
     auto t = cache_.insert({index, data});
     auto ib = t.first;
-    if (!t.second) {
-        assert(index == t.first->first);
-        auto skip_index = find_gap_index(t.first, cache_.end());
+    if(auto td=t.first; t.second){
+        //尝试找到前一块
+        if (td != cache_.begin()) {
+            auto pre_it = td;
+            pre_it--;
+            if (auto cf=pre_it->first + pre_it->second.size(); cf> index) {  //找到前一块重叠处
+                //#bug 2
+                if (cf < index_end) {
+                    extra_bytes-=cf-index;
+                    pre_it->second.resize(index - pre_it->first);
+                } else {
+                    //# bug 3
+                    cache_.erase(td);
+                    return extra_bytes;
+                }
+            }
+        }
+        //无论前一块是否存在,现在都没有重叠了
+        extra_bytes+=data.size();
+    } else {
+        assert(index == td->first);
+        auto skip_index = find_gap_index(td, cache_.end());
         if (skip_index < data.size()) {
-            assert(skip_index>0);
+            //可能skip_index为0,因为cache_中存在empty的字符串
+            //所以一开始要杜绝empty字符串放入cache_
+            // assert(skip_index>0);
             index+=skip_index;
             t = cache_.insert({index, data.substr(skip_index)});
             assert(t.second==true);
-            extra_bytes += t.first->second.size();
-            ib = t.first;
+            extra_bytes += td->second.size();
+            ib = td;
         } else {
             return extra_bytes;
         }
@@ -73,39 +91,20 @@ size_t update_unassembled_bytes(std::map<size_t, std::string> &cache_, const str
         // } else {
         //     return extra_bytes;
         // }
-    } else {
-        //尝试找到前一块
-        if (t.first != cache_.begin()) {
-            auto pre_it = t.first;
-            pre_it--;
-            if (pre_it->first + pre_it->second.size() > index) {  //找到前一块重叠处
-                //#bug 2
-                if (pre_it->first + pre_it->second.size() < index_end) {
-                    extra_bytes-=pre_it->first+pre_it->second.size()-index;
-                    pre_it->second=pre_it->second.substr(0,index-pre_it->first);
-                } else {
-                    //# bug 3
-                    cache_.erase(t.first);
-                    return extra_bytes;
-                }
-            }
-        }
-        //无论前一块是否存在,现在都没有重叠了
-        extra_bytes+=data.size();
-    }
+    } 
 
     //现在没有交集了
     it = ib;
     it++;
 
-    //循环内不需要创建新字符串
+    //移除覆盖的字符
     while (it != cache_.end() && it->first + it->second.size() <= index_end) {
         extra_bytes -= it->second.size();  //减少的字节
         cache_.erase(it++);
     }
     if (it != cache_.end() && index_end > it->first) {
         //#bug 1
-        ib->second=ib->second.substr(0,it->first-ib->first);
+        ib->second.resize(it->first - ib->first);
         extra_bytes -= index_end-it->first;
     }
 
@@ -113,9 +112,9 @@ size_t update_unassembled_bytes(std::map<size_t, std::string> &cache_, const str
 }
 
 using str_range = std::pair<size_t, size_t>;
-str_range get_str_range(const str_range src, const str_range target) {
+str_range get_str_range(const str_range src, const str_range target_range) {
     auto [i, j] = src;
-    const auto [x, y] = target;
+    const auto [x, y] = target_range;
     if (i < x)
         i = x;
     if (j > y)
@@ -159,6 +158,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     const auto [i, j] =
         get_str_range({index, data.size() + index}, {next_index_, next_index_ + _output.remaining_capacity()});
 
+    assert(j>=i&&i>=index);
     unassembled_ += update_unassembled_bytes(cache_, data.substr(i - index, j - i), i);
 
     //尝试从cache_中,把数据转移到字节流中
