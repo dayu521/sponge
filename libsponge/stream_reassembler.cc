@@ -23,7 +23,7 @@ StreamReassembler::StreamReassembler(const size_t capacity) : _output(capacity),
 
 namespace {
 using map_iterator = std::map<size_t, std::string>::iterator;
-//it必须合法,返回值不保证合法,例如,可能是容器的end()
+//it必须合法,返回值表示跳过的字节数
 size_t find_gap_index(map_iterator it,map_iterator it_end) {
     std::remove_cv<decltype(it->first)>::type i = 0;
     auto be=it->first;
@@ -68,7 +68,7 @@ size_t update_unassembled_bytes(std::map<size_t, std::string> &cache_, const str
         extra_bytes+=data.size();
     } else {
         assert(index == td->first);
-        auto skip_index = find_gap_index(td, cache_.end());
+        auto skip_index = find_gap_index(td, cache_.upper_bound(index+data.size()));
         if (skip_index < data.size()) {
             //可能skip_index为0,因为cache_中存在empty的字符串
             //所以一开始要杜绝empty字符串放入cache_
